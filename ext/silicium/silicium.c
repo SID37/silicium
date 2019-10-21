@@ -131,20 +131,50 @@ VALUE matrix_get(VALUE self, VALUE row, VALUE column)
     return DBL2NUM(data->data[m + data->m * n]);
 }
 
+void fill_d_array(int len, double* a, double v)
+{
+    for(int i = 0; i < len; ++i)
+        a[i] = v;
+}
+
+void multiply_d_array(int len, double* a, double v)
+{
+    for(int i = 0; i < len; ++i)
+        a[i] *= v;
+}
+
+void copy_d_array(int len, const double* input, double* output)
+{
+    for(int i = 0; i < len; ++i)
+        output[i] = input[i];
+}
+
+// in  - matrix m x n
+// out - matrix n x m
+void matrix_transpose(int m, int n, const double* in, double* out)
+{
+    for(int i = 0; i < m; ++i)
+        for(int j = 0; j < n; ++j)
+            out[j + n * i] = in[i + m * j];
+}
+
 // A - matrix k x n
 // B - matrix m x k
 // C - matrix m x n
 void c_matrix_multiply(int n, int k, int m, const double* A, const double* B, double* C)
 {
+    
+    fill_d_array(m * n, C, 0);
+    
     for(int j = 0; j < n; ++j)
     {
         double* p_c = C + m * j;
-        for(int t = 0; t < k; ++t)
-            p_c[t] = 0;
+        const double* p_a = A + k * j;
+    
         for(int t = 0; t < k; ++t)
         {
             const double* p_b = B + m * t;
-            double d_a = A[t + k * j];
+            double d_a = p_a[t];
             for(int i = 0; i < m; ++i)
             {
                 p_c[i] += d_a * p_b[i];
@@ -153,9 +183,8 @@ void c_matrix_multiply(int n, int k, int m, const double* A, const double* B, do
     }
 }
 
-VALUE matrix_multiply(VALUE self, VALUE other)
+VALUE matrix_multiply_mm(VALUE self, VALUE other)
 {
-
 	struct matrix* A;
     struct matrix* B;
 	TypedData_Get_Struct(self, struct matrix, &matrix_type, A);
@@ -177,6 +206,45 @@ VALUE matrix_multiply(VALUE self, VALUE other)
     return result;
 }
 
+VALUE matrix_multiply_mn(VALUE self, VALUE value)
+{
+	struct matrix* A;
+	TypedData_Get_Struct(self, struct matrix, &matrix_type, A);
+
+    double d = NUM2DBL(value);
+
+    struct matrix* R;
+    VALUE result = TypedData_Make_Struct(cMatrix, struct matrix, &matrix_type, R);
+
+    c_matrix_init(R, A->m, A->n);
+    copy_d_array(A->m * A->n, A->data, R->data);
+    multiply_d_array(R->m * R->n, R->data, d);
+
+    return result;
+}
+
+VALUE matrix_multiply(VALUE self, VALUE v)
+{
+    if(RB_FLOAT_TYPE_P(v) || FIXNUM_P(v)
+        || RB_TYPE_P(v, T_BIGNUM))
+        return matrix_multiply_mn(self, v);
+    return matrix_multiply_mm(self, v);
+}
+
+VALUE matrix_copy(VALUE mtrx)
+{
+	struct matrix* M;
+	TypedData_Get_Struct(mtrx, struct matrix, &matrix_type, M);
+
+    struct matrix* R;
+    VALUE result = TypedData_Make_Struct(cMatrix, struct matrix, &matrix_type, R);
+
+    c_matrix_init(R, M->m, M->n);
+    copy_d_array(M->m * M->n, M->data, R->data);
+
+    return result;
+}
+
 VALUE row_size(VALUE self)
 {
 	struct matrix* data;
@@ -189,6 +257,20 @@ VALUE column_size(VALUE self)
 	struct matrix* data;
 	TypedData_Get_Struct(self, struct matrix, &matrix_type, data);
     return INT2NUM(data->n);
+}
+
+VALUE transpose(VALUE self)
+{
+	struct matrix* M;
+	TypedData_Get_Struct(self, struct matrix, &matrix_type, M);
+
+    struct matrix* R;
+    VALUE result = TypedData_Make_Struct(cMatrix, struct matrix, &matrix_type, R);
+
+    c_matrix_init(R, M->n, M->m);
+    matrix_transpose(M->m, M->n, M->data, R->data);
+
+    return result;
 }
 
 void Init_silicium()
@@ -208,4 +290,6 @@ void Init_silicium()
 	rb_define_method(cMatrix, "*", matrix_multiply, 1);
 	rb_define_method(cMatrix, "row_size", row_size, 0);
 	rb_define_method(cMatrix, "column_size", column_size, 0);
+	rb_define_method(cMatrix, "copy", matrix_copy, 0);
+	rb_define_method(cMatrix, "transpose", transpose, 0);
 }

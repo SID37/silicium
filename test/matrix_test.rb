@@ -61,11 +61,32 @@ class SiliciumMatrixTest < Minitest::Test
     assert_raises(Silicium::Matrix::TypeError) { m[1, 1] = 'not a number' }
   end
 
-  def test_multiply
+  def test_multiply_mm
     m1 = Silicium::Matrix[[1, 2], [3, 4], [7, 0], [-3, 1]]
     m2 = Silicium::Matrix[[1, 0, 3], [4, 5, -2]]
     m = Silicium::Matrix[[9, 10, -1], [19, 20, 1], [7, 0, 21], [1, 5, -11]]
 
     assert m == m1 * m2
+  end
+
+  def test_multiply_mn
+    m1 = Silicium::Matrix[[1, 2], [3, 4], [7, 0], [-3, 1]]
+    m2 = Silicium::Matrix[[5, 10], [15, 20], [35, 0], [-15, 5]]
+
+    assert_equal m2, m1 * 5
+  end
+
+  def test_copy
+    m1 = Silicium::Matrix[[1, 2], [3, 4], [7, 0]]
+    m2 = m1.copy
+
+    assert_equal m1, m2
+  end
+
+  def test_transpose
+    m1 = Silicium::Matrix[[1, 2], [3, 4], [7, 0]]
+    m2 = Silicium::Matrix[[1, 3, 7], [2, 4, 0]]
+
+    assert_equal m1, m2.transpose
   end
 end
